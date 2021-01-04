@@ -2,6 +2,8 @@ package com.example.csvman.config;
 
 import com.example.csvman.model.Person;
 import com.example.csvman.processor.PersonItemProcessor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -22,15 +24,17 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 
+import java.time.LocalDateTime;
+
 @Configuration
 @EnableBatchProcessing
 public class BatchConfig {
 
+  private static final Logger log = LoggerFactory.getLogger(BatchConfig.class);
+
   @Autowired public JobBuilderFactory jobBuilderFactory;
 
   @Autowired public StepBuilderFactory stepBuilderFactory;
-
-  private Resource outputResource = new FileSystemResource("output/outputData.csv");
 
   @Bean
   public FlatFileItemReader<Person> reader() {
@@ -38,6 +42,7 @@ public class BatchConfig {
         .name("personItemReader")
         .resource(new ClassPathResource("sample-data.csv"))
         .delimited()
+        .delimiter(";")
         .names(new String[] {"firstName", "lastName"})
         .fieldSetMapper(
             new BeanWrapperFieldSetMapper<>() {
@@ -55,8 +60,8 @@ public class BatchConfig {
 
   @Bean
   public ItemWriter<Person> writer() {
-    System.out.println("Passa pelo Writer!");
-
+    Resource outputResource =
+        new FileSystemResource("output/output-" + LocalDateTime.now() + ".csv");
     // Create writer instance
     FlatFileItemWriter<Person> writer = new FlatFileItemWriter<>();
 
@@ -68,11 +73,11 @@ public class BatchConfig {
 
     // Name field values sequence based on object properties
     writer.setLineAggregator(
-        new DelimitedLineAggregator<Person>() {
+        new DelimitedLineAggregator<>() {
           {
-            setDelimiter(",");
+            setDelimiter(";");
             setFieldExtractor(
-                new BeanWrapperFieldExtractor<Person>() {
+                new BeanWrapperFieldExtractor<>() {
                   {
                     setNames(new String[] {"firstName", "lastName"});
                   }
@@ -93,7 +98,7 @@ public class BatchConfig {
   }
 
   @Bean
-  public Step step1(FlatFileItemWriter<Person> writer) {
+  public Step step1(ItemWriter<Person> writer) {
     return stepBuilderFactory
         .get("step1")
         .<Person, Person>chunk(10)
